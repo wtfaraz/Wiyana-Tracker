@@ -260,6 +260,16 @@
   }
 
   .save-note { font-size: 11px; color: #666; margin-top: 16px; text-align: center; }
+
+  .admin-banner {
+    font-size: 11.5px;
+    color: #f0c050;
+    background: #2a210a;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-top: 14px;
+    text-align: center;
+  }
 </style>
 </head>
 <body>
@@ -324,7 +334,10 @@
 
   <div class="btn-row" style="margin-top:18px;">
     <button class="btn-secondary" id="export-btn">Export log (.csv)</button>
-    <button class="btn-danger" id="reset-btn">Reset all</button>
+  </div>
+  <div id="admin-controls" style="display:none;">
+    <div class="admin-banner">Admin mode — delete controls are visible only on this link.</div>
+    <button class="btn-danger" id="reset-btn" style="width:100%; margin-top:8px;">Reset all</button>
   </div>
 
   <p class="save-note">Progress is saved on this device automatically.</p>
@@ -375,6 +388,16 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 const ENTRIES_COLLECTION = "event-log-entries";
+
+// Admin gating: the delete-capable controls only render at all (not just
+// hidden via CSS) when the page is loaded with the correct secret in the
+// URL — e.g. https://your-link/?admin=wiyana2026. Anyone without that exact
+// query string never sees a delete button exist in the DOM, let alone in
+// the page source. Change ADMIN_SECRET to whatever you want before sharing
+// the admin link with yourself.
+const ADMIN_SECRET = "wiyana2026";
+const urlParams = new URLSearchParams(window.location.search);
+const isAdmin = urlParams.get('admin') === ADMIN_SECRET;
 
 const manifest = [{"code":"M1-FP3304SA-BE01","barcode":"850031616257","name":"MYFIRST - 3D PEN - 3DPEN MAKE - BLUE","qty":1},{"code":"M1-FP3304SA-RD01","barcode":"850031616264","name":"MYFIRST - 3D PEN - 3DPEN MAKE - RED","qty":1},{"code":"PB-629-2-WW","barcode":"7640152097058","name":"POCKETBOOK - VERSE - E-READ - 6INCH - BRIGHT BLUE","qty":10},{"code":"PB-629-DEMO","barcode":null,"name":"POCKETBOOK - VERSE PRO - MIST GREY - DEMO","qty":1},{"code":"RIN-DISPLAY-DUMMY","barcode":"6988188700264","name":"RINGO - DISPLAY IMAGE AND CASE - DUMMY","qty":3},{"code":"BP-BT-SCHOOLP-BLUE","barcode":"4897111740583","name":"BUDDYPHONES - SCHOOL PLUS - WIRELESS - BLUE","qty":11},{"code":"BP-BT-SCHOOLP-PINK","barcode":"4897111740606","name":"BUDDYPHONES - SCHOOL PLUS - WIRELESS - PINK","qty":11},{"code":"BP-CF-WHITE-DEMO","barcode":null,"name":"BUDDYPHONES - COSMOS FUN - WHITE - DEMO","qty":1},{"code":"BP-COSMOS-FUN-BL","barcode":"4897111740873","name":"BUDDYPHONES - COSMOS FUN -WIRELESS HEADPHONES - BLUE","qty":6},{"code":"BP-COSMOS-FUN-PK","barcode":"4897111740866","name":"BUDDYPHONES - COSMOS FUN -WIRELESS HEADPHONES - PINK","qty":6},{"code":"BT-BP-COSMOS-FUN-YL","barcode":null,"name":"BUDDYPHONES - COSMOS FUN - YELLOW","qty":1},{"code":"M1-FV5201SA-BE01","barcode":"850031616950","name":"MYFIRST - KARAOKE MACHINE - VOICE 2  - BLUE","qty":14},{"code":"M1-FV5201SA-PE01","barcode":"850031616967","name":"MYFIRST - KARAOKE MACHINE - VOICE 2  - PURPLE","qty":10},{"code":"NU-POP-P-ARD","barcode":"846654087086","name":"NATIVE UNION - POP PHONE - ALARM RED","qty":16},{"code":"NU-POP-P-GRN","barcode":"846654087109","name":"NATIVE UNION - POP PHONE - SLATE GREEN","qty":11},{"code":"NU-POP-P-PIN","barcode":"846654087055","name":"NATIVE UNION - POP PHONE - PINE","qty":10},{"code":"NU-PB-5KMS-BLK","barcode":"846654078879","name":"NATIVE UNION - MAGNETIC POWER BANK 5000MAH - BLACK","qty":20},{"code":"NU-PB-5KMS-GRN","barcode":"846654078893","name":"NATIVE UNION - MAGNETIC POWER BANK 5000MAH - SLATEGREEN","qty":20},{"code":"NU-PB-5KMS-NAV","barcode":"846654083903","name":"NATIVE UNION - MAGNETIC POWER BANK 5000MAH - NAVY","qty":20},{"code":"POL-6000","barcode":"9120096770630","name":"POLAROID - COLOR FILM - FOR I-TYPE","qty":10},{"code":"POL-6001","barcode":"9120096770647","name":"POLAROID - I-TYPE - INSTANT FILM - DOUBLE PACK - 8 PHOTOS TO","qty":8},{"code":"POL-6017","barcode":"9120096770807","name":"POLAROID - 16 COLOUR - GO FILM - DOUBLE PACK","qty":15},{"code":"POL-6212","barcode":"9120096773709","name":"POLAROID - GO - INSTANT FILM - 6 PACK - 48 PHOTOS TOTAL - CO","qty":4},{"code":"BLU-110086","barcode":"689122023618","name":"BLUEAIR - AIR PURIFIER - BLUE PURE - 3350i MAX","qty":15},{"code":"BLU-110344","barcode":"689122024592","name":"BLUEAIR - AIR PURIFIER - BLUE PURE - 511 PURE","qty":15},{"code":"BLU-111582","barcode":"689122027388","name":"BLUEAIR - AIR PURIFIER - BLUE PURE - 511i MAX","qty":20},{"code":"BLU-112693","barcode":"689122029962","name":"BLUEAIR - HUMIDIFIER - H35I","qty":10},{"code":"BLU-112930-DEMO","barcode":"689122030388","name":"BLUEAIR - BLUE SIGNATURE - SP4I - RETAIL DARK - DEMO","qty":1},{"code":"BLU-113371","barcode":"689122031231","name":"BLUEAIR - HUMIDIFIER - H38I - DREAMWELL - LARGE ROOM - COAST","qty":16},{"code":"BLU-113709","barcode":"689122032429","name":"BLUEAIR - AIR PURIFIER - MINI RESTFUL - SMALL ROOM - BEIGE","qty":21},{"code":"BLU-113931","barcode":"689122032443","name":"BLUEAIR - AIR PURIFIER - MINI RESTFUL - BLUE","qty":20},{"code":"BLU-3350IMAX-DEMO","barcode":null,"name":"BLUEAIR - AIR PURIFIER - 3350I MAX - DEMO","qty":1},{"code":"BP-POP-FUN-BLU-DEMO","barcode":null,"name":"BUDDYPHONES - POP FUN - BLUE - DEMO","qty":1},{"code":"BP-POP-FUN-WH","barcode":"4897111741016","name":"BUDDYPHONES - POPFUN - SNOWWHITE","qty":10},{"code":"BP-POP-FUN-YL-DEMO","barcode":null,"name":"BUDDYPHONES - POP FUN - YELLOW - DEMO","qty":1},{"code":"BP-POP-FUN-YL","barcode":"4897111741030","name":"BUDDYPHONES - POPFUN - SUNYELLOW","qty":10},{"code":"M1-FC2401MTDMSBE-DUM","barcode":null,"name":"MYFIRST - CAMERA INSTA 2 DUMMY SAMPLE - BLUE","qty":1},{"code":"M1-FP3301AC-CC01","barcode":"8885008561812","name":"MYFIRST - FILAMENTS - 3DPEN - 5 COLOURS - COLD","qty":1},{"code":"M1-FS8511SA-BE01","barcode":"8885008560792","name":"MYFIRST - SKETCH PAD - SKETCH II - 8.5-INCH - YBLUE","qty":6},{"code":"M1-FS8511SA-PK01","barcode":"8885008560808","name":"MYFIRST - SKETCH PAD - SKETCH II - 8.5-INCH - PINK","qty":10},{"code":"POL-6572","barcode":"9120134283108","name":"POLAROID - NOW GEN3 - INSTANT CAMERA WITH COLOR FILM BUNDLE","qty":10},{"code":"POL-6573","barcode":"9120134283122","name":"POLAROID - NOW GEN3 - INSTANT CAMERA WITH COLOR FILM BUNDLE","qty":10},{"code":"POL-9156","barcode":"9120134280206","name":"POLAROID - NOW GEN3 - INSTANT CAMERA - CORAL","qty":3},{"code":"POL-9158","barcode":"9120134280220","name":"POLAROID - NOW GEN3 - INSTANT CAMERA - YELLOW","qty":3},{"code":"POL-9159","barcode":"9120134280237","name":"POLAROID - NOW GEN3 - INSTANT CAMERA - PURPLE","qty":5},{"code":"POL-9183","barcode":"9120134282781","name":"POLAROID - INSTANT CAMERA - POLAROID GO GENERATION 2 - PURPL","qty":6},{"code":"XG-VIBEONE-GREY-WM03H","barcode":"6935670510112","name":"XGIMI - VIBE ONE -LCD PROJECTOR - GOOGLE TV - JBL SPEAKER","qty":3},{"code":"CABC-LOL01EUCY01","barcode":"4711228821044","name":"LOLLIPOP - BABY MONITOR - TURQUOISE","qty":14},{"code":"CABC-LOL01EUPK01","barcode":"4711228821051","name":"LOLLIPOP - BABY MONITOR - COTTON CANDY - PINK","qty":1},{"code":"LLPOP-BEAR-DEMO","barcode":null,"name":"LOLLIPOP - BABY MONITOR - BEAR - DEMO","qty":1},{"code":"LLPOP-YLW-DEMO","barcode":null,"name":"LOLLIPOP - BABY MONITOR - YELLOW - DEMO","qty":1},{"code":"M1-FC2003MTDMSBE-DUM","barcode":null,"name":"MYFIRST - CAMERA 3 DUMMY SAMPLE - BLUE","qty":1},{"code":"M1-FC2003MTDMSPK-DUM","barcode":null,"name":"MYFIRST - CAMERA 3 DUMMY SAMPLE - PINK","qty":1},{"code":"M1-FC2003SA-BE01","barcode":"8885008560242","name":"MYFIRST - KIDS CAMERA - CAMERA 3 - BLUE","qty":3},{"code":"M1-FC2003SA-PK01","barcode":"8885008560259","name":"MYFIRST - KIDS CAMERA - CAMERA 3 - PINK","qty":20},{"code":"M1-FC2401SA-BE01","barcode":"8885008560693","name":"MYFIRST - KIDS CAMERA - CAMERA INSTA 2 - BLUE","qty":7},{"code":"XG-VIBEONE-DEMO","barcode":null,"name":"XGIMI - VIBE ONE - DEMO","qty":1},{"code":"POL-POS-9176-G3","barcode":null,"name":"POLAROID - POS - DUMMY - NOW CAMERA GEN 3 - YELLOW","qty":1},{"code":"RIN-B2OR24LSC1","barcode":"850055385023","name":"RINGO - WATER BOTTLE - 24 OZ / 710 ML - SCREW LID / BOOSTER","qty":5},{"code":"RIN-B2SS24LSC1","barcode":"850055385009","name":"RINGO - WATER BOTTLE - 24 OZ / 710 ML - SCREW LID / BOOSTER","qty":5},{"code":"RIN-RGO24SIP-OR","barcode":"850055385214","name":"RINGO - PRO - BOTTLE SIP LID - 24OZ - ORANGE","qty":10}];
 
@@ -688,6 +711,7 @@ document.querySelectorAll('.filters button').forEach(btn => {
 });
 
 async function deleteEntry(id) {
+  if (!isAdmin) return; // hidden in UI, but also refuse if called directly
   log = log.filter(e => e.id !== id);
   render();
   await deleteEntryRemote(id);
@@ -722,12 +746,13 @@ function render() {
         <div class="log-meta">${formatTime(e.ts)}${e.type === 'gift' && e.recipient ? ' · ' + e.recipient : ''}</div>
       </div>
       <span class="log-tag ${e.type === 'sold' ? 'tag-sold' : 'tag-gift'}">${e.type === 'sold' ? 'SOLD' : 'GIFT'}</span>
-      <button class="log-del" onclick="deleteEntry('${e.id}')" aria-label="Delete entry">✕</button>
+      ${isAdmin ? `<button class="log-del" onclick="deleteEntry('${e.id}')" aria-label="Delete entry">✕</button>` : ''}
     </div>
   `).join('');
 }
 
 document.getElementById('reset-btn').addEventListener('click', async () => {
+  if (!isAdmin) return;
   if (!confirm('Clear the ENTIRE shared event log for everyone using this link? This cannot be undone.')) return;
   const idsToDelete = log.map(e => e.id);
   for (const id of idsToDelete) {
@@ -752,6 +777,11 @@ document.getElementById('export-btn').addEventListener('click', () => {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 });
+
+if (isAdmin) {
+  const adminPanel = document.getElementById('admin-controls');
+  if (adminPanel) adminPanel.style.display = 'block';
+}
 
 startLiveSync();
 </script>
