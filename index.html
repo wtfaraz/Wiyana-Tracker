@@ -351,19 +351,41 @@
   </div>
 </div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCuwiLnEsquWI6estgOzVsCPegyIz_ZYVU",
+  authDomain: "wiyana-tracker.firebaseapp.com",
+  projectId: "wiyana-tracker",
+  storageBucket: "wiyana-tracker.firebasestorage.app",
+  messagingSenderId: "215036331780",
+  appId: "1:215036331780:web:a0d1f08453777e7d15b251",
+  measurementId: "G-YR2XGDW7MH"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+const ENTRIES_COLLECTION = "event-log-entries";
+
 const manifest = [{"code":"M1-FP3304SA-BE01","barcode":"850031616257","name":"MYFIRST - 3D PEN - 3DPEN MAKE - BLUE","qty":1},{"code":"M1-FP3304SA-RD01","barcode":"850031616264","name":"MYFIRST - 3D PEN - 3DPEN MAKE - RED","qty":1},{"code":"PB-629-2-WW","barcode":"7640152097058","name":"POCKETBOOK - VERSE - E-READ - 6INCH - BRIGHT BLUE","qty":10},{"code":"PB-629-DEMO","barcode":null,"name":"POCKETBOOK - VERSE PRO - MIST GREY - DEMO","qty":1},{"code":"RIN-DISPLAY-DUMMY","barcode":"6988188700264","name":"RINGO - DISPLAY IMAGE AND CASE - DUMMY","qty":3},{"code":"BP-BT-SCHOOLP-BLUE","barcode":"4897111740583","name":"BUDDYPHONES - SCHOOL PLUS - WIRELESS - BLUE","qty":11},{"code":"BP-BT-SCHOOLP-PINK","barcode":"4897111740606","name":"BUDDYPHONES - SCHOOL PLUS - WIRELESS - PINK","qty":11},{"code":"BP-CF-WHITE-DEMO","barcode":null,"name":"BUDDYPHONES - COSMOS FUN - WHITE - DEMO","qty":1},{"code":"BP-COSMOS-FUN-BL","barcode":"4897111740873","name":"BUDDYPHONES - COSMOS FUN -WIRELESS HEADPHONES - BLUE","qty":6},{"code":"BP-COSMOS-FUN-PK","barcode":"4897111740866","name":"BUDDYPHONES - COSMOS FUN -WIRELESS HEADPHONES - PINK","qty":6},{"code":"BT-BP-COSMOS-FUN-YL","barcode":null,"name":"BUDDYPHONES - COSMOS FUN - YELLOW","qty":1},{"code":"M1-FV5201SA-BE01","barcode":"850031616950","name":"MYFIRST - KARAOKE MACHINE - VOICE 2  - BLUE","qty":14},{"code":"M1-FV5201SA-PE01","barcode":"850031616967","name":"MYFIRST - KARAOKE MACHINE - VOICE 2  - PURPLE","qty":10},{"code":"NU-POP-P-ARD","barcode":"846654087086","name":"NATIVE UNION - POP PHONE - ALARM RED","qty":16},{"code":"NU-POP-P-GRN","barcode":"846654087109","name":"NATIVE UNION - POP PHONE - SLATE GREEN","qty":11},{"code":"NU-POP-P-PIN","barcode":"846654087055","name":"NATIVE UNION - POP PHONE - PINE","qty":10},{"code":"NU-PB-5KMS-BLK","barcode":"846654078879","name":"NATIVE UNION - MAGNETIC POWER BANK 5000MAH - BLACK","qty":20},{"code":"NU-PB-5KMS-GRN","barcode":"846654078893","name":"NATIVE UNION - MAGNETIC POWER BANK 5000MAH - SLATEGREEN","qty":20},{"code":"NU-PB-5KMS-NAV","barcode":"846654083903","name":"NATIVE UNION - MAGNETIC POWER BANK 5000MAH - NAVY","qty":20},{"code":"POL-6000","barcode":"9120096770630","name":"POLAROID - COLOR FILM - FOR I-TYPE","qty":10},{"code":"POL-6001","barcode":"9120096770647","name":"POLAROID - I-TYPE - INSTANT FILM - DOUBLE PACK - 8 PHOTOS TO","qty":8},{"code":"POL-6017","barcode":"9120096770807","name":"POLAROID - 16 COLOUR - GO FILM - DOUBLE PACK","qty":15},{"code":"POL-6212","barcode":"9120096773709","name":"POLAROID - GO - INSTANT FILM - 6 PACK - 48 PHOTOS TOTAL - CO","qty":4},{"code":"BLU-110086","barcode":"689122023618","name":"BLUEAIR - AIR PURIFIER - BLUE PURE - 3350i MAX","qty":15},{"code":"BLU-110344","barcode":"689122024592","name":"BLUEAIR - AIR PURIFIER - BLUE PURE - 511 PURE","qty":15},{"code":"BLU-111582","barcode":"689122027388","name":"BLUEAIR - AIR PURIFIER - BLUE PURE - 511i MAX","qty":20},{"code":"BLU-112693","barcode":"689122029962","name":"BLUEAIR - HUMIDIFIER - H35I","qty":10},{"code":"BLU-112930-DEMO","barcode":"689122030388","name":"BLUEAIR - BLUE SIGNATURE - SP4I - RETAIL DARK - DEMO","qty":1},{"code":"BLU-113371","barcode":"689122031231","name":"BLUEAIR - HUMIDIFIER - H38I - DREAMWELL - LARGE ROOM - COAST","qty":16},{"code":"BLU-113709","barcode":"689122032429","name":"BLUEAIR - AIR PURIFIER - MINI RESTFUL - SMALL ROOM - BEIGE","qty":21},{"code":"BLU-113931","barcode":"689122032443","name":"BLUEAIR - AIR PURIFIER - MINI RESTFUL - BLUE","qty":20},{"code":"BLU-3350IMAX-DEMO","barcode":null,"name":"BLUEAIR - AIR PURIFIER - 3350I MAX - DEMO","qty":1},{"code":"BP-POP-FUN-BLU-DEMO","barcode":null,"name":"BUDDYPHONES - POP FUN - BLUE - DEMO","qty":1},{"code":"BP-POP-FUN-WH","barcode":"4897111741016","name":"BUDDYPHONES - POPFUN - SNOWWHITE","qty":10},{"code":"BP-POP-FUN-YL-DEMO","barcode":null,"name":"BUDDYPHONES - POP FUN - YELLOW - DEMO","qty":1},{"code":"BP-POP-FUN-YL","barcode":"4897111741030","name":"BUDDYPHONES - POPFUN - SUNYELLOW","qty":10},{"code":"M1-FC2401MTDMSBE-DUM","barcode":null,"name":"MYFIRST - CAMERA INSTA 2 DUMMY SAMPLE - BLUE","qty":1},{"code":"M1-FP3301AC-CC01","barcode":"8885008561812","name":"MYFIRST - FILAMENTS - 3DPEN - 5 COLOURS - COLD","qty":1},{"code":"M1-FS8511SA-BE01","barcode":"8885008560792","name":"MYFIRST - SKETCH PAD - SKETCH II - 8.5-INCH - YBLUE","qty":6},{"code":"M1-FS8511SA-PK01","barcode":"8885008560808","name":"MYFIRST - SKETCH PAD - SKETCH II - 8.5-INCH - PINK","qty":10},{"code":"POL-6572","barcode":"9120134283108","name":"POLAROID - NOW GEN3 - INSTANT CAMERA WITH COLOR FILM BUNDLE","qty":10},{"code":"POL-6573","barcode":"9120134283122","name":"POLAROID - NOW GEN3 - INSTANT CAMERA WITH COLOR FILM BUNDLE","qty":10},{"code":"POL-9156","barcode":"9120134280206","name":"POLAROID - NOW GEN3 - INSTANT CAMERA - CORAL","qty":3},{"code":"POL-9158","barcode":"9120134280220","name":"POLAROID - NOW GEN3 - INSTANT CAMERA - YELLOW","qty":3},{"code":"POL-9159","barcode":"9120134280237","name":"POLAROID - NOW GEN3 - INSTANT CAMERA - PURPLE","qty":5},{"code":"POL-9183","barcode":"9120134282781","name":"POLAROID - INSTANT CAMERA - POLAROID GO GENERATION 2 - PURPL","qty":6},{"code":"XG-VIBEONE-GREY-WM03H","barcode":"6935670510112","name":"XGIMI - VIBE ONE -LCD PROJECTOR - GOOGLE TV - JBL SPEAKER","qty":3},{"code":"CABC-LOL01EUCY01","barcode":"4711228821044","name":"LOLLIPOP - BABY MONITOR - TURQUOISE","qty":14},{"code":"CABC-LOL01EUPK01","barcode":"4711228821051","name":"LOLLIPOP - BABY MONITOR - COTTON CANDY - PINK","qty":1},{"code":"LLPOP-BEAR-DEMO","barcode":null,"name":"LOLLIPOP - BABY MONITOR - BEAR - DEMO","qty":1},{"code":"LLPOP-YLW-DEMO","barcode":null,"name":"LOLLIPOP - BABY MONITOR - YELLOW - DEMO","qty":1},{"code":"M1-FC2003MTDMSBE-DUM","barcode":null,"name":"MYFIRST - CAMERA 3 DUMMY SAMPLE - BLUE","qty":1},{"code":"M1-FC2003MTDMSPK-DUM","barcode":null,"name":"MYFIRST - CAMERA 3 DUMMY SAMPLE - PINK","qty":1},{"code":"M1-FC2003SA-BE01","barcode":"8885008560242","name":"MYFIRST - KIDS CAMERA - CAMERA 3 - BLUE","qty":3},{"code":"M1-FC2003SA-PK01","barcode":"8885008560259","name":"MYFIRST - KIDS CAMERA - CAMERA 3 - PINK","qty":20},{"code":"M1-FC2401SA-BE01","barcode":"8885008560693","name":"MYFIRST - KIDS CAMERA - CAMERA INSTA 2 - BLUE","qty":7},{"code":"XG-VIBEONE-DEMO","barcode":null,"name":"XGIMI - VIBE ONE - DEMO","qty":1},{"code":"POL-POS-9176-G3","barcode":null,"name":"POLAROID - POS - DUMMY - NOW CAMERA GEN 3 - YELLOW","qty":1},{"code":"RIN-B2OR24LSC1","barcode":"850055385023","name":"RINGO - WATER BOTTLE - 24 OZ / 710 ML - SCREW LID / BOOSTER","qty":5},{"code":"RIN-B2SS24LSC1","barcode":"850055385009","name":"RINGO - WATER BOTTLE - 24 OZ / 710 ML - SCREW LID / BOOSTER","qty":5},{"code":"RIN-RGO24SIP-OR","barcode":"850055385214","name":"RINGO - PRO - BOTTLE SIP LID - 24OZ - ORANGE","qty":10}];
 
-const STORAGE_PREFIX = 'event-day-entry:';
+const STORAGE_PREFIX = "event-day-entry:";
 const barcodeMap = {};
 manifest.forEach(m => { if (m.barcode) barcodeMap[m.barcode] = m; });
 
-let log = []; // [{id, code, barcode, name, type: 'sold'|'gift', recipient, ts}] — synced from shared storage
+let log = []; // [{id, code, barcode, name, type: 'sold'|'gift', recipient, ts}] — synced live from Firestore
 let currentFilter = 'all';
 let codeReader = null;
 let scanning = false;
-let pollTimer = null;
-const POLL_INTERVAL_MS = 4000;
 let isSyncing = false;
 
 // Lock state — same engine as the transfer scanner: a code stays locked until
@@ -376,68 +398,60 @@ const MISS_THRESHOLD = 4;
 let modalOpen = false;
 let pendingItem = null; // {code, barcode, name} awaiting a tag decision
 
-// Each scan is its own shared key (event-day-entry:<id>), never a shared array.
-// This means two phones scanning at the same moment write to DIFFERENT keys —
-// there is no read-modify-write step on shared data, so one person's scan can
-// never overwrite or erase another person's. Reading the full log means
-// listing all keys with this prefix and fetching each one.
-async function loadLog(showSyncState) {
-  if (showSyncState) {
-    isSyncing = true;
-    setSyncUi(true);
-  }
-  try {
-    const listResult = await window.storage.list(STORAGE_PREFIX, true);
-    const keys = (listResult && listResult.keys) || [];
-    const entries = [];
-    for (const key of keys) {
-      try {
-        const result = await window.storage.get(key, true);
-        if (result && result.value) {
-          entries.push(JSON.parse(result.value));
-        }
-      } catch (e) { /* skip unreadable entry */ }
+// Real-time Firestore listener — every phone with this page open gets pushed
+// updates the instant ANYONE adds, edits, or deletes an entry. No polling,
+// no manual refresh needed, and it genuinely persists across reloads because
+// it's a real cloud database, not anything tied to this browser tab.
+function startLiveSync() {
+  setSyncUi(true);
+  onSnapshot(
+    collection(db, ENTRIES_COLLECTION),
+    (snapshot) => {
+      const entries = [];
+      snapshot.forEach((docSnap) => {
+        entries.push(docSnap.data());
+      });
+      entries.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+      log = entries;
+      setSyncUi(false);
+      setSyncLabel('Synced');
+      render();
+    },
+    (error) => {
+      setSyncUi(false);
+      setSyncLabel('Connection issue — retrying…');
+      console.error('Firestore sync error:', error);
     }
-    entries.sort((a, b) => new Date(b.ts) - new Date(a.ts));
-    log = entries;
-    setSyncLabel('Synced');
-  } catch (e) {
-    setSyncLabel('Offline — showing last known data');
-  }
-  isSyncing = false;
-  setSyncUi(false);
-  render();
-}
-
-function setSyncUi(syncing) {
-  const dot = document.getElementById('sync-status');
-  if (!dot) return;
-  dot.classList.toggle('syncing', syncing);
-  if (syncing) setSyncLabel('Syncing…');
-}
-
-function setSyncLabel(text) {
-  const label = document.getElementById('sync-label');
-  if (label) label.textContent = text;
+  );
 }
 
 async function saveEntry(entry) {
   try {
-    await window.storage.set(STORAGE_PREFIX + entry.id, JSON.stringify(entry), true);
+    await setDoc(doc(db, ENTRIES_COLLECTION, entry.id), entry);
   } catch (e) {
     flash('unknown', '!', 'SAVE FAILED', 'Could not save — check connection and try again');
+    console.error('Save failed:', e);
   }
 }
 
 async function deleteEntryRemote(id) {
   try {
-    await window.storage.delete(STORAGE_PREFIX + id, true);
-  } catch (e) {}
+    await deleteDoc(doc(db, ENTRIES_COLLECTION, id));
+  } catch (e) {
+    console.error('Delete failed:', e);
+  }
 }
 
-function startPolling() {
-  if (pollTimer) clearInterval(pollTimer);
-  pollTimer = setInterval(() => loadLog(false), POLL_INTERVAL_MS);
+function setSyncUi(syncing) {
+  const dotEl = document.getElementById('sync-status');
+  if (!dotEl) return;
+  dotEl.classList.toggle('syncing', syncing);
+  if (syncing) setSyncLabel('Syncing…');
+}
+
+function setSyncLabel(text) {
+  const labelEl = document.getElementById('sync-label');
+  if (labelEl) labelEl.textContent = text;
 }
 
 function vibrate(pattern) {
@@ -657,7 +671,12 @@ function stopCamera() {
 
 document.getElementById('start-btn').addEventListener('click', startCamera);
 document.getElementById('stop-btn').addEventListener('click', stopCamera);
-document.getElementById('refresh-btn').addEventListener('click', () => loadLog(true));
+document.getElementById('refresh-btn').addEventListener('click', () => {
+  // The live listener keeps data current automatically; this is just a
+  // visible "yes, it's working" pulse for peace of mind.
+  setSyncUi(true);
+  setTimeout(() => setSyncUi(false), 500);
+});
 
 document.querySelectorAll('.filters button').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -673,6 +692,8 @@ async function deleteEntry(id) {
   render();
   await deleteEntryRemote(id);
 }
+window.deleteEntry = deleteEntry; // module scripts don't expose functions globally by default —
+                                  // needed because the log rows use inline onclick="deleteEntry(...)"
 
 function formatTime(iso) {
   const d = new Date(iso);
@@ -709,12 +730,11 @@ function render() {
 document.getElementById('reset-btn').addEventListener('click', async () => {
   if (!confirm('Clear the ENTIRE shared event log for everyone using this link? This cannot be undone.')) return;
   const idsToDelete = log.map(e => e.id);
-  log = [];
-  render();
   for (const id of idsToDelete) {
     await deleteEntryRemote(id);
   }
-  await loadLog(true);
+  // No manual reload needed — the live onSnapshot listener picks up
+  // every deletion automatically and re-renders for everyone.
 });
 
 document.getElementById('export-btn').addEventListener('click', () => {
@@ -733,13 +753,7 @@ document.getElementById('export-btn').addEventListener('click', () => {
   URL.revokeObjectURL(url);
 });
 
-loadLog(true).then(startPolling);
-
-// Refresh immediately whenever the tab/page becomes visible again —
-// covers the case where someone locks their phone mid-event and comes back.
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') loadLog(false);
-});
+startLiveSync();
 </script>
 </body>
 </html>
