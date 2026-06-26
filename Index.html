@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Event Day Tracker — Sold / Gifted</title>
+<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0d0d0d;
+    color: #f0f0ee;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 12px 14px 40px; }
+  h1 { font-size: 17px; font-weight: 600; margin: 4px 0 2px; }
+  .sub { font-size: 12px; color: #999; margin: 0 0 14px; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .stat {
+    background: #1a1a1a;
+    border-radius: 10px;
+    padding: 10px 10px;
+  }
+  .stat-label { font-size: 10.5px; color: #999; margin: 0 0 2px; }
+  .stat-value { font-size: 19px; font-weight: 600; margin: 0; }
+  .stat.sold .stat-value { color: #6fb8e3; }
+  .stat.gift .stat-value { color: #e3a86f; }
+
+  .scan-area {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  #video { width: 100%; height: 100%; object-fit: cover; display: none; }
+  .scan-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .scan-box {
+    width: 78%;
+    height: 32%;
+    border: 2px solid #5dcaa5;
+    border-radius: 10px;
+    opacity: 0.85;
+    transition: border-color 0.15s ease;
+  }
+  .scan-box.locked {
+    border-color: #555;
+    opacity: 0.5;
+  }
+  .flash-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 6px;
+    pointer-events: none;
+    opacity: 0;
+    background: rgba(0,0,0,0.45);
+    transition: opacity 0.12s ease;
+  }
+  .flash-overlay.show { opacity: 1; }
+  .flash-icon { font-size: 52px; line-height: 1; }
+  .flash-label { font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }
+  .flash-sub { font-size: 13px; color: #ddd; font-weight: 500; text-align: center; padding: 0 20px; }
+  .flash-overlay.sold .flash-icon, .flash-overlay.sold .flash-label { color: #6fb8e3; }
+  .flash-overlay.gift .flash-icon, .flash-overlay.gift .flash-label { color: #e3a86f; }
+  .flash-overlay.unknown .flash-icon, .flash-overlay.unknown .flash-label { color: #f09595; }
+
+  .scan-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #777;
+    font-size: 13px;
+    text-align: center;
+    padding: 0 20px;
+  }
+
+  .btn-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  button {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-primary { background: #5dcaa5; color: #04342c; }
+  .btn-secondary { background: #262626; color: #f0f0ee; }
+  .btn-danger { background: #2c1313; color: #f09595; }
+  button:active { transform: scale(0.98); }
+
+  .manual-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .manual-row input {
+    flex: 1;
+    font-size: 14px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid #333;
+    background: #1a1a1a;
+    color: #f0f0ee;
+  }
+  .manual-row button { flex: none; padding: 10px 16px; }
+
+  #lock-hint { font-size: 12px; color: #666; text-align: center; margin: 0 0 10px; min-height: 16px; }
+
+  .filters { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 2px; }
+  .filters button {
+    flex: none;
+    font-size: 12px;
+    padding: 6px 12px;
+    background: #1a1a1a;
+    color: #ccc;
+  }
+  .filters button.active { background: #5dcaa5; color: #04342c; }
+
+  .log-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 4px;
+    border-top: 1px solid #1f1f1f;
+    font-size: 13px;
+  }
+  .log-row:first-child { border-top: none; }
+  .log-left { flex: 1; min-width: 0; }
+  .log-name { font-weight: 500; }
+  .log-meta { font-size: 11px; color: #999; margin-top: 2px; }
+  .log-tag {
+    flex: none;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 6px;
+    white-space: nowrap;
+    height: fit-content;
+  }
+  .tag-sold { background: #122c3d; color: #6fb8e3; }
+  .tag-gift { background: #3d2a12; color: #e3a86f; }
+  .log-del {
+    flex: none;
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 16px;
+    padding: 0 4px;
+    cursor: pointer;
+  }
+
+  .empty-log { color: #666; font-size: 13px; text-align: center; padding: 24px 0; }
+
+  /* Tag modal */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 50;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal-sheet {
+    width: 100%;
+    max-width: 480px;
+    background: #161616;
+    border-radius: 16px 16px 0 0;
+    padding: 18px 18px 24px;
+  }
+  .modal-item-name { font-size: 15px; font-weight: 600; margin: 0 0 2px; }
+  .modal-item-code { font-size: 12px; color: #888; margin: 0 0 16px; font-family: monospace; }
+  .modal-choice-row { display: flex; gap: 10px; margin-bottom: 14px; }
+  .modal-choice {
+    flex: 1;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1.5px solid #333;
+    background: #1d1d1d;
+    color: #f0f0ee;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+  }
+  .modal-choice.sold-choice { border-color: #2d5570; }
+  .modal-choice.gift-choice { border-color: #6f4d23; }
+  .modal-choice:active { transform: scale(0.97); }
+  .recipient-row { display: none; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .recipient-row.show { display: flex; }
+  .recipient-row input {
+    font-size: 15px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid #333;
+    background: #1a1a1a;
+    color: #f0f0ee;
+  }
+  .recipient-row label { font-size: 12px; color: #999; }
+  .modal-confirm { display: none; }
+  .modal-confirm.show { display: block; }
+  .modal-cancel {
+    background: none;
+    color: #777;
+    font-size: 13px;
+    padding: 8px;
+  }
+
+  .save-note { font-size: 11px; color: #666; margin-top: 16px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Event day tracker</h1>
+  <p class="sub">Scan each unit as it's sold or gifted. Log saves automatically.</p>
+
+  <div class="stats">
+    <div class="stat">
+      <p class="stat-label">Total logged</p>
+      <p class="stat-value" id="stat-total">0</p>
+    </div>
+    <div class="stat sold">
+      <p class="stat-label">Sold</p>
+      <p class="stat-value" id="stat-sold">0</p>
+    </div>
+    <div class="stat gift">
+      <p class="stat-label">Gifted</p>
+      <p class="stat-value" id="stat-gift">0</p>
+    </div>
+  </div>
+
+  <div class="scan-area">
+    <video id="video" muted playsinline></video>
+    <div class="scan-placeholder" id="scan-placeholder">
+      <span>Tap "start camera" to scan barcodes live</span>
+    </div>
+    <div class="scan-overlay" id="scan-overlay" style="display:none;">
+      <div class="scan-box" id="scan-box"></div>
+    </div>
+    <div class="flash-overlay" id="flash-overlay">
+      <div class="flash-icon" id="flash-icon"></div>
+      <div class="flash-label" id="flash-label"></div>
+      <div class="flash-sub" id="flash-sub"></div>
+    </div>
+  </div>
+  <p id="lock-hint"></p>
+
+  <div class="btn-row">
+    <button class="btn-primary" id="start-btn">Start camera</button>
+    <button class="btn-secondary" id="stop-btn" style="display:none;">Stop camera</button>
+  </div>
+
+  <div class="manual-row">
+    <input type="text" id="manual-input" placeholder="Or type/paste a barcode" inputmode="numeric" />
+    <button class="btn-secondary" id="manual-add">Add</button>
+  </div>
+
+  <div class="filters">
+    <button data-f="all" class="active">All</button>
+    <button data-f="sold">Sold</button>
+    <button data-f="gift">Gifted</button>
+  </div>
+
+  <div id="log-list"></div>
+
+  <div class="btn-row" style="margin-top:18px;">
+    <button class="btn-secondary" id="export-btn">Export log (.csv)</button>
+    <button class="btn-danger" id="reset-btn">Reset all</button>
+  </div>
+
+  <p class="save-note">Progress is saved on this device automatically.</p>
+
+</div>
+
+<div class="modal-backdrop" id="modal-backdrop">
+  <div class="modal-sheet">
+    <p class="modal-item-name" id="modal-item-name"></p>
+    <p class="modal-item-code" id="modal-item-code"></p>
+
+    <div class="modal-choice-row" id="modal-choice-row">
+      <div class="modal-choice sold-choice" id="choice-sold">Sold</div>
+      <div class="modal-choice gift-choice" id="choice-gift">Gift</div>
+    </div>
+
+    <div class="recipient-row" id="recipient-row">
+      <label for="recipient-input">Recipient name</label>
+      <input type="text" id="recipient-input" placeholder="e.g. Trisha Vaz" autocomplete="off" />
+      <button class="btn-primary" id="confirm-gift" style="margin-top:4px;">Confirm gift</button>
+    </div>
+
+    <button class="modal-cancel" id="modal-cancel">Cancel this scan</button>
+  </div>
+</div>
+
+<script>
+const manifest = [{"code":"M1-FP3304SA-BE01","barcode":"850031616257","name":"MYFIRST - 3D PEN - 3DPEN MAKE - BLUE","qty":1},{"code":"M1-FP3304SA-RD01","barcode":"850031616264","name":"MYFIRST - 3D PEN - 3DPEN MAKE - RED","qty":1},{"code":"PB-629-2-WW","barcode":"7640152097058","name":"POCKETBOOK - VERSE - E-READ - 6INCH - BRIGHT BLUE","qty":10},{"code":"PB-629-DEMO","barcode":null,"name":"POCKETBOOK - VERSE PRO - MIST GREY - DEMO","qty":1},{"code":"RIN-DISPLAY-DUMMY","barcode":"6988188700264","name":"RINGO - DISPLAY IMAGE AND CASE - DUMMY","qty":3},{"code":"BP-BT-SCHOOLP-BLUE","barcode":"4897111740583","name":"BUDDYPHONES - SCHOOL PLUS - WIRELESS - BLUE","qty":11},{"code":"BP-BT-SCHOOLP-PINK","barcode":"4897111740606","name":"BUDDYPHONES - SCHOOL PLUS - WIRELESS - PINK","qty":11},{"code":"BP-CF-WHITE-DEMO","barcode":null,"name":"BUDDYPHONES - COSMOS FUN - WHITE - DEMO","qty":1},{"code":"BP-COSMOS-FUN-BL","barcode":"4897111740873","name":"BUDDYPHONES - COSMOS FUN -WIRELESS HEADPHONES - BLUE","qty":6},{"code":"BP-COSMOS-FUN-PK","barcode":"4897111740866","name":"BUDDYPHONES - COSMOS FUN -WIRELESS HEADPHONES - PINK","qty":6},{"code":"BT-BP-COSMOS-FUN-YL","barcode":null,"name":"BUDDYPHONES - COSMOS FUN - YELLOW","qty":1},{"code":"M1-FV5201SA-BE01","barcode":"850031616950","name":"MYFIRST - KARAOKE MACHINE - VOICE 2  - BLUE","qty":14},{"code":"M1-FV5201SA-PE01","barcode":"850031616967","name":"MYFIRST - KARAOKE MACHINE - VOICE 2  - PURPLE","qty":10},{"code":"NU-POP-P-ARD","barcode":"846654087086","name":"NATIVE UNION - POP PHONE - ALARM RED","qty":16},{"code":"NU-POP-P-GRN","barcode":"846654087109","name":"NATIVE UNION - POP PHONE - SLATE GREEN","qty":11},{"code":"NU-POP-P-PIN","barcode":"846654087055","name":"NATIVE UNION - POP PHONE - PINE","qty":10},{"code":"NU-PB-5KMS-BLK","barcode":"846654078879","name":"NATIVE UNION - MAGNETIC POWER BANK 5000MAH - BLACK","qty":20},{"code":"NU-PB-5KMS-GRN","barcode":"846654078893","name":"NATIVE UNION - MAGNETIC POWER BANK 5000MAH - SLATEGREEN","qty":20},{"code":"NU-PB-5KMS-NAV","barcode":"846654083903","name":"NATIVE UNION - MAGNETIC POWER BANK 5000MAH - NAVY","qty":20},{"code":"POL-6000","barcode":"9120096770630","name":"POLAROID - COLOR FILM - FOR I-TYPE","qty":10},{"code":"POL-6001","barcode":"9120096770647","name":"POLAROID - I-TYPE - INSTANT FILM - DOUBLE PACK - 8 PHOTOS TO","qty":8},{"code":"POL-6017","barcode":"9120096770807","name":"POLAROID - 16 COLOUR - GO FILM - DOUBLE PACK","qty":15},{"code":"POL-6212","barcode":"9120096773709","name":"POLAROID - GO - INSTANT FILM - 6 PACK - 48 PHOTOS TOTAL - CO","qty":4},{"code":"BLU-110086","barcode":"689122023618","name":"BLUEAIR - AIR PURIFIER - BLUE PURE - 3350i MAX","qty":15},{"code":"BLU-110344","barcode":"689122024592","name":"BLUEAIR - AIR PURIFIER - BLUE PURE - 511 PURE","qty":15},{"code":"BLU-111582","barcode":"689122027388","name":"BLUEAIR - AIR PURIFIER - BLUE PURE - 511i MAX","qty":20},{"code":"BLU-112693","barcode":"689122029962","name":"BLUEAIR - HUMIDIFIER - H35I","qty":10},{"code":"BLU-112930-DEMO","barcode":"689122030388","name":"BLUEAIR - BLUE SIGNATURE - SP4I - RETAIL DARK - DEMO","qty":1},{"code":"BLU-113371","barcode":"689122031231","name":"BLUEAIR - HUMIDIFIER - H38I - DREAMWELL - LARGE ROOM - COAST","qty":16},{"code":"BLU-113709","barcode":"689122032429","name":"BLUEAIR - AIR PURIFIER - MINI RESTFUL - SMALL ROOM - BEIGE","qty":21},{"code":"BLU-113931","barcode":"689122032443","name":"BLUEAIR - AIR PURIFIER - MINI RESTFUL - BLUE","qty":20},{"code":"BLU-3350IMAX-DEMO","barcode":null,"name":"BLUEAIR - AIR PURIFIER - 3350I MAX - DEMO","qty":1},{"code":"BP-POP-FUN-BLU-DEMO","barcode":null,"name":"BUDDYPHONES - POP FUN - BLUE - DEMO","qty":1},{"code":"BP-POP-FUN-WH","barcode":"4897111741016","name":"BUDDYPHONES - POPFUN - SNOWWHITE","qty":10},{"code":"BP-POP-FUN-YL-DEMO","barcode":null,"name":"BUDDYPHONES - POP FUN - YELLOW - DEMO","qty":1},{"code":"BP-POP-FUN-YL","barcode":"4897111741030","name":"BUDDYPHONES - POPFUN - SUNYELLOW","qty":10},{"code":"M1-FC2401MTDMSBE-DUM","barcode":null,"name":"MYFIRST - CAMERA INSTA 2 DUMMY SAMPLE - BLUE","qty":1},{"code":"M1-FP3301AC-CC01","barcode":"8885008561812","name":"MYFIRST - FILAMENTS - 3DPEN - 5 COLOURS - COLD","qty":1},{"code":"M1-FS8511SA-BE01","barcode":"8885008560792","name":"MYFIRST - SKETCH PAD - SKETCH II - 8.5-INCH - YBLUE","qty":6},{"code":"M1-FS8511SA-PK01","barcode":"8885008560808","name":"MYFIRST - SKETCH PAD - SKETCH II - 8.5-INCH - PINK","qty":10},{"code":"POL-6572","barcode":"9120134283108","name":"POLAROID - NOW GEN3 - INSTANT CAMERA WITH COLOR FILM BUNDLE","qty":10},{"code":"POL-6573","barcode":"9120134283122","name":"POLAROID - NOW GEN3 - INSTANT CAMERA WITH COLOR FILM BUNDLE","qty":10},{"code":"POL-9156","barcode":"9120134280206","name":"POLAROID - NOW GEN3 - INSTANT CAMERA - CORAL","qty":3},{"code":"POL-9158","barcode":"9120134280220","name":"POLAROID - NOW GEN3 - INSTANT CAMERA - YELLOW","qty":3},{"code":"POL-9159","barcode":"9120134280237","name":"POLAROID - NOW GEN3 - INSTANT CAMERA - PURPLE","qty":5},{"code":"POL-9183","barcode":"9120134282781","name":"POLAROID - INSTANT CAMERA - POLAROID GO GENERATION 2 - PURPL","qty":6},{"code":"XG-VIBEONE-GREY-WM03H","barcode":"6935670510112","name":"XGIMI - VIBE ONE -LCD PROJECTOR - GOOGLE TV - JBL SPEAKER","qty":3},{"code":"CABC-LOL01EUCY01","barcode":"4711228821044","name":"LOLLIPOP - BABY MONITOR - TURQUOISE","qty":14},{"code":"CABC-LOL01EUPK01","barcode":"4711228821051","name":"LOLLIPOP - BABY MONITOR - COTTON CANDY - PINK","qty":1},{"code":"LLPOP-BEAR-DEMO","barcode":null,"name":"LOLLIPOP - BABY MONITOR - BEAR - DEMO","qty":1},{"code":"LLPOP-YLW-DEMO","barcode":null,"name":"LOLLIPOP - BABY MONITOR - YELLOW - DEMO","qty":1},{"code":"M1-FC2003MTDMSBE-DUM","barcode":null,"name":"MYFIRST - CAMERA 3 DUMMY SAMPLE - BLUE","qty":1},{"code":"M1-FC2003MTDMSPK-DUM","barcode":null,"name":"MYFIRST - CAMERA 3 DUMMY SAMPLE - PINK","qty":1},{"code":"M1-FC2003SA-BE01","barcode":"8885008560242","name":"MYFIRST - KIDS CAMERA - CAMERA 3 - BLUE","qty":3},{"code":"M1-FC2003SA-PK01","barcode":"8885008560259","name":"MYFIRST - KIDS CAMERA - CAMERA 3 - PINK","qty":20},{"code":"M1-FC2401SA-BE01","barcode":"8885008560693","name":"MYFIRST - KIDS CAMERA - CAMERA INSTA 2 - BLUE","qty":7},{"code":"XG-VIBEONE-DEMO","barcode":null,"name":"XGIMI - VIBE ONE - DEMO","qty":1},{"code":"POL-POS-9176-G3","barcode":null,"name":"POLAROID - POS - DUMMY - NOW CAMERA GEN 3 - YELLOW","qty":1},{"code":"RIN-B2OR24LSC1","barcode":"850055385023","name":"RINGO - WATER BOTTLE - 24 OZ / 710 ML - SCREW LID / BOOSTER","qty":5},{"code":"RIN-B2SS24LSC1","barcode":"850055385009","name":"RINGO - WATER BOTTLE - 24 OZ / 710 ML - SCREW LID / BOOSTER","qty":5},{"code":"RIN-RGO24SIP-OR","barcode":"850055385214","name":"RINGO - PRO - BOTTLE SIP LID - 24OZ - ORANGE","qty":10}];
+
+const STORAGE_KEY = 'event-day-log';
+const barcodeMap = {};
+manifest.forEach(m => { if (m.barcode) barcodeMap[m.barcode] = m; });
+
+let log = []; // [{id, code, barcode, name, type: 'sold'|'gift', recipient, ts}]
+let currentFilter = 'all';
+let codeReader = null;
+let scanning = false;
+
+// Lock state — same engine as the transfer scanner: a code stays locked until
+// a different code appears or the camera sees no barcode for a few frames.
+// While the tag modal is open, scanning is fully paused (modalOpen = true)
+// so nothing fires while you're choosing Sold/Gift or typing a name.
+let lockedCode = null;
+let missStreak = 0;
+const MISS_THRESHOLD = 4;
+let modalOpen = false;
+let pendingItem = null; // {code, barcode, name} awaiting a tag decision
+
+async function loadLog() {
+  try {
+    const result = await window.storage.get(STORAGE_KEY);
+    if (result && result.value) {
+      log = JSON.parse(result.value);
+    }
+  } catch (e) {
+    log = [];
+  }
+  render();
+}
+
+async function saveLog() {
+  try {
+    await window.storage.set(STORAGE_KEY, JSON.stringify(log));
+  } catch (e) {}
+}
+
+function vibrate(pattern) {
+  if (navigator.vibrate) navigator.vibrate(pattern);
+}
+
+let flashTimer = null;
+function flash(kind, icon, label, sub) {
+  const overlay = document.getElementById('flash-overlay');
+  overlay.className = `flash-overlay show ${kind}`;
+  document.getElementById('flash-icon').textContent = icon;
+  document.getElementById('flash-label').textContent = label;
+  document.getElementById('flash-sub').textContent = sub || '';
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => { overlay.className = 'flash-overlay'; }, 1100);
+}
+
+function updateLockHint() {
+  const hint = document.getElementById('lock-hint');
+  if (!hint) return;
+  if (modalOpen) {
+    hint.textContent = 'Choose Sold or Gift below to continue scanning';
+  } else if (lockedCode) {
+    hint.textContent = 'Locked — move to next item to continue scanning';
+  } else {
+    hint.textContent = '';
+  }
+}
+
+function handleFrame(result) {
+  if (modalOpen) return; // fully paused while tagging
+  if (!result) {
+    missStreak++;
+    if (lockedCode && missStreak >= MISS_THRESHOLD) {
+      lockedCode = null;
+      const scanBox = document.getElementById('scan-box');
+      if (scanBox) scanBox.classList.remove('locked');
+      updateLockHint();
+    }
+    return;
+  }
+  missStreak = 0;
+  const code = result.getText().trim();
+  if (!code) return;
+  if (code === lockedCode) return; // same item still in frame
+
+  lockedCode = code;
+  const scanBox = document.getElementById('scan-box');
+  if (scanBox) scanBox.classList.add('locked');
+  updateLockHint();
+  openTagModal(code);
+}
+
+function openTagModal(code) {
+  const item = barcodeMap[code];
+  modalOpen = true;
+  updateLockHint();
+
+  if (!item) {
+    vibrate([40, 60, 40, 60, 40, 60, 40]);
+    flash('unknown', '?', 'UNKNOWN', `${code} not in manifest`);
+    // Still let them tag it manually with the raw code, in case it's a real
+    // item whose barcode wasn't in the original sheet.
+    pendingItem = { code: code, barcode: code, name: `Unrecognized item (${code})` };
+  } else {
+    vibrate([45]);
+    pendingItem = { code: item.code, barcode: item.barcode, name: item.name };
+  }
+
+  document.getElementById('modal-item-name').textContent = pendingItem.name;
+  document.getElementById('modal-item-code').textContent = pendingItem.barcode;
+  document.getElementById('modal-choice-row').style.display = 'flex';
+  document.getElementById('recipient-row').classList.remove('show');
+  document.getElementById('recipient-input').value = '';
+  document.getElementById('modal-backdrop').classList.add('show');
+}
+
+function closeModalAndResume() {
+  document.getElementById('modal-backdrop').classList.remove('show');
+  pendingItem = null;
+  modalOpen = false;
+  missStreak = 0; // give the box a moment to be moved away before re-arming
+  updateLockHint();
+}
+
+function commitLog(type, recipient) {
+  if (!pendingItem) return;
+  const entry = {
+    id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+    code: pendingItem.code,
+    barcode: pendingItem.barcode,
+    name: pendingItem.name,
+    type: type,
+    recipient: recipient || '',
+    ts: new Date().toISOString()
+  };
+  log.unshift(entry);
+  saveLog();
+
+  if (type === 'sold') {
+    vibrate([150]);
+    flash('sold', '$', 'SOLD', pendingItem.name);
+  } else {
+    vibrate([80, 60, 80]);
+    flash('gift', '🎁', 'GIFTED', recipient ? `${pendingItem.name} → ${recipient}` : pendingItem.name);
+  }
+
+  render();
+  closeModalAndResume();
+}
+
+document.getElementById('choice-sold').addEventListener('click', () => {
+  commitLog('sold', '');
+});
+
+document.getElementById('choice-gift').addEventListener('click', () => {
+  document.getElementById('modal-choice-row').style.display = 'none';
+  document.getElementById('recipient-row').classList.add('show');
+  document.getElementById('recipient-input').focus();
+});
+
+document.getElementById('confirm-gift').addEventListener('click', () => {
+  const recipient = document.getElementById('recipient-input').value.trim();
+  if (!recipient) {
+    document.getElementById('recipient-input').placeholder = 'Recipient name is required';
+    document.getElementById('recipient-input').focus();
+    return;
+  }
+  commitLog('gift', recipient);
+});
+
+document.getElementById('recipient-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('confirm-gift').click();
+});
+
+document.getElementById('modal-cancel').addEventListener('click', () => {
+  closeModalAndResume();
+});
+
+// Manual barcode entry — same tag modal flow, just triggered without the camera.
+function handleManualScan(raw) {
+  const code = String(raw).trim();
+  if (!code) return;
+  modalOpen = true;
+  openTagModal(code);
+}
+
+document.getElementById('manual-add').addEventListener('click', () => {
+  const input = document.getElementById('manual-input');
+  handleManualScan(input.value);
+  input.value = '';
+});
+document.getElementById('manual-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    handleManualScan(e.target.value);
+    e.target.value = '';
+  }
+});
+
+async function startCamera() {
+  const video = document.getElementById('video');
+  const placeholder = document.getElementById('scan-placeholder');
+  const overlay = document.getElementById('scan-overlay');
+  const startBtn = document.getElementById('start-btn');
+  const stopBtn = document.getElementById('stop-btn');
+
+  try {
+    codeReader = new ZXing.BrowserMultiFormatReader();
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams = devices.filter(d => d.kind === 'videoinput');
+    let deviceId = null;
+    const backCam = cams.find(d => /back|rear|environment/i.test(d.label));
+    if (backCam) deviceId = backCam.deviceId;
+
+    video.style.display = 'block';
+    placeholder.style.display = 'none';
+    overlay.style.display = 'flex';
+    startBtn.style.display = 'none';
+    stopBtn.style.display = 'block';
+    scanning = true;
+    lockedCode = null;
+    missStreak = 0;
+    updateLockHint();
+
+    const constraints = deviceId
+      ? { deviceId: { exact: deviceId } }
+      : { facingMode: { ideal: 'environment' } };
+
+    codeReader.decodeFromConstraints({ video: constraints }, video, (result, err) => {
+      if (!scanning) return;
+      handleFrame(result || null);
+    });
+  } catch (e) {
+    flash('unknown', '!', 'CAMERA ERROR', e.message || e.name || 'unknown error');
+    stopCamera();
+  }
+}
+
+function stopCamera() {
+  scanning = false;
+  lockedCode = null;
+  missStreak = 0;
+  updateLockHint();
+  if (codeReader) {
+    try { codeReader.reset(); } catch (e) {}
+    codeReader = null;
+  }
+  document.getElementById('video').style.display = 'none';
+  document.getElementById('scan-placeholder').style.display = 'flex';
+  document.getElementById('scan-overlay').style.display = 'none';
+  document.getElementById('start-btn').style.display = 'block';
+  document.getElementById('stop-btn').style.display = 'none';
+}
+
+document.getElementById('start-btn').addEventListener('click', startCamera);
+document.getElementById('stop-btn').addEventListener('click', stopCamera);
+
+document.querySelectorAll('.filters button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.f;
+    render();
+  });
+});
+
+function deleteEntry(id) {
+  log = log.filter(e => e.id !== id);
+  saveLog();
+  render();
+}
+
+function formatTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function render() {
+  const soldCount = log.filter(e => e.type === 'sold').length;
+  const giftCount = log.filter(e => e.type === 'gift').length;
+  document.getElementById('stat-total').textContent = log.length;
+  document.getElementById('stat-sold').textContent = soldCount;
+  document.getElementById('stat-gift').textContent = giftCount;
+
+  const list = document.getElementById('log-list');
+  const filtered = currentFilter === 'all' ? log : log.filter(e => e.type === currentFilter);
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty-log">No items logged yet</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(e => `
+    <div class="log-row">
+      <div class="log-left">
+        <div class="log-name">${e.name}</div>
+        <div class="log-meta">${formatTime(e.ts)}${e.type === 'gift' && e.recipient ? ' · ' + e.recipient : ''}</div>
+      </div>
+      <span class="log-tag ${e.type === 'sold' ? 'tag-sold' : 'tag-gift'}">${e.type === 'sold' ? 'SOLD' : 'GIFT'}</span>
+      <button class="log-del" onclick="deleteEntry('${e.id}')" aria-label="Delete entry">✕</button>
+    </div>
+  `).join('');
+}
+
+document.getElementById('reset-btn').addEventListener('click', async () => {
+  if (!confirm('Clear the entire event log? This cannot be undone.')) return;
+  log = [];
+  await saveLog();
+  render();
+});
+
+document.getElementById('export-btn').addEventListener('click', () => {
+  let csv = 'Time,Item Code,Barcode,Item Name,Type,Recipient\n';
+  log.slice().reverse().forEach(e => {
+    csv += `"${new Date(e.ts).toLocaleString()}","${e.code}","${e.barcode}","${e.name}","${e.type}","${e.recipient}"\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'event-day-log.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+loadLog();
+</script>
+</body>
+</html>
